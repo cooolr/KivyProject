@@ -1,205 +1,156 @@
 # -*- coding: utf-8 -*-
-#
-# Copyright (c) 2020 Ivanov Yuri and KivyMD
-#
-# For suggestions and questions:
-# <kivydevelopment@gmail.com>
-#
-# LICENSE: MIT
 
 import os
 import sys
-import stat
-import platform
+from ast import literal_eval
 
-import argparse
-import traceback
-import shutil
+from kivy.lang import Builder
+from kivy.core.window import Window
+from kivy.config import ConfigParser
+from kivy.core.text import LabelBase
+from kivy.clock import Clock
+from kivy.utils import get_hex_from_color
+from kivy.properties import ObjectProperty, StringProperty
 
-from kivy.logger import Logger
-from kivy.logger import PY2
+from libs.uix.baseclass.startscreen import StartScreen
+from libs.uix.lists import Lists
 
-
-if PY2:
-    FileNotFoundError = IOError
-
-
-# Refer to: https://stackoverflow.com/questions/1889597/deleting-directory-in-python
-def remove_readonly(func, path, excinfo):
-    os.chmod(path, stat.S_IWRITE)
-    func(path)
+from kivymd.app import MDApp
+from kivymd.toast import toast
 
 
-def write_file(in_file, out_file, values=False):
-    string_file = open(out_file).read()
-    if values:
-        for key in values.keys():
-            if not values[key]:
-                continue
-            string_file = string_file.replace(key, values[key])
-        if PY2:
-            open(in_file, "w").write(string_file)
+__projectname__ = "KivyProject Demo"
+__version__ = "1.0"
+__copyright__ = "MIT"
+__author__ = "Developer"
+__site__ = "https://github.com"
+__repo__ = "github.com"
+__mail__ = ""
+
+
+class MainApp(MDApp):
+    title = __projectname__
+    icon = 'icon.png'
+    nav_drawer = ObjectProperty()
+
+    def __init__(self, **kvargs):
+        super(MainApp, self).__init__(**kvargs)
+        Window.bind(on_keyboard=self.events_program)
+        Window.soft_input_mode = 'below_target'
+        LabelBase.register(name="Roboto", fn_regular="./data/droid.ttf")
+
+        self.list_previous_screens = ['base']
+        self.window = Window
+        self.config = ConfigParser()
+        self.manager = None
+        self.exit_interval = False
+
+    def set_value_from_config(self):
+        self.config.read(os.path.join(self.directory, 'main.ini'))
+        self.style = self.config.get('General', 'theme_style')
+        self.theme_cls.theme_style = self.style
+
+    def build(self):
+        self.set_value_from_config()
+        self.load_all_kv_files(os.path.join(self.directory, 'libs', 'uix', 'kv'))
+        self.screen = StartScreen()
+        self.manager = self.screen.ids.manager
+        self.nav_drawer = self.screen.ids.nav_drawer
+
+        return self.screen
+
+    def load_all_kv_files(self, directory_kv_files):
+        for kv_file in os.listdir(directory_kv_files):
+            kv_file = os.path.join(directory_kv_files, kv_file)
+            if os.path.isfile(kv_file):
+                with open(kv_file, encoding='utf-8') as kv:
+                    Builder.load_string(kv.read())
+
+    def events_program(self, instance, keyboard, keycode, text, modifiers):
+        if keyboard in (1001, 27):
+            if self.nav_drawer.state == 'open':
+                self.nav_drawer.toggle_nav_drawer()
+            self.back_screen(event=keyboard)
+        elif keyboard in (282, 319):
+            pass
+
+        return True
+
+    def back_screen(self, event=None):
+        if event in (1001, 27):
+            if self.manager.current == 'base':
+                self.dialog_exit()
+                return
+            try:
+                self.manager.current = self.list_previous_screens.pop()
+            except:
+                self.manager.current = 'base'
+            self.screen.ids.action_bar.title = self.title
+            self.screen.ids.action_bar.left_action_items = \
+                [['menu', lambda x: self.nav_drawer.toggle_nav_drawer()]]
+
+    def show_about(self, *args):
+        self.nav_drawer.toggle_nav_drawer()
+        self.screen.ids.about.ids.label.text = \
+            (
+                u'[size=20][b]{name}[/b][/size]\n\n'
+                u'[b]Version:[/b] {version}\n'
+                u'[b]License:[/b] {license}\n\n'
+                u'[size=20][b]Developer[/b][/size]\n\n'
+                u'[ref={site}]'
+                u'[color={link_color}]{author}[/color][/ref]\n'
+                u'{mail}\n\n'
+                u'[b]Source code:[/b] '
+                u'[ref={repo}]'
+                u'[color={link_color}]GitHub[/color][/ref]').format(
+                name=__projectname__,
+                version=__version__,
+                license=__copyright__,
+                author=__author__,
+                site=__site__,
+                mail=__mail__,
+                repo=__repo__,
+                link_color=get_hex_from_color(self.theme_cls.primary_color)
+            )
+        self.manager.current = 'about'
+        self.screen.ids.action_bar.left_action_items = \
+            [['chevron-left', lambda x: self.back_screen(27)]]
+
+    def show_license(self, *args):
+        self.nav_drawer.toggle_nav_drawer()
+        self.screen.ids.license.ids.text_license.text = \
+            open(os.path.join(self.directory, 'LICENSE'), 'r', encoding='utf-8').read()
+
+        self.manager.current = 'license'
+        self.screen.ids.action_bar.left_action_items = \
+            [['chevron-left', lambda x: self.back_screen(27)]]
+        self.screen.ids.action_bar.title = 'MIT LICENSE'
+
+    def select_style(self, *args):
+        if self.style == 'Light':
+            self.theme_cls.theme_style = 'Dark'
+            self.style = 'Dark'
+            self.config.set('General', 'theme_style', self.style)
+            self.config.write()
         else:
-            open(in_file, "w", encoding="utf-8").write(string_file)
-    else:
-        if PY2:
-            open(in_file, "w").write(string_file)
-        else:
-            open(in_file, "w", encoding="utf-8").write(string_file)
+            self.theme_cls.theme_style = 'Light'
+            self.style = 'Light'
+            self.config.set('General', 'theme_style', self.style)
+            self.config.write()
+
+    def dialog_exit(self):
+        def check_interval_press(interval):
+            self.exit_interval += interval
+            if self.exit_interval > 5:
+                self.exit_interval = False
+                Clock.unschedule(check_interval_press)
+
+        if self.exit_interval:
+            sys.exit(0)
+            
+        Clock.schedule_interval(check_interval_press, 1)
+        toast(('Press Back to Exit'))
 
 
-def copy_files(directory):
-    print(directory)
-    for directory, dirs, files in os.walk(directory):
-        directory_created = directory.split(prog_path)[1]
-        print(FULL_PATH_TO_PROJECT + directory_created)
-        os.mkdir(FULL_PATH_TO_PROJECT + directory_created)
-        for file in files:
-            file_created = FULL_PATH_TO_PROJECT + os.path.join(directory_created, file)
-            print("        " + file_created)
-            shutil.copyfile(os.path.join(directory, file), file_created)
-        print()
-
-
-__version__ = "2.4.1"
-Logger.info("Creator Kivy Project version: " + __version__)
-
-if len(sys.argv) <= 1:
-    Logger.warning(
-        """
-Use a script with string arguments:
-
-'name' - project name
-'version' - project version
-'path' - project directory
-'repo' - address of the repository on GitHub (optional)
-'author' - name of the author of the project (optional)
-'mail' - mail of the author of the project (optional)
-'site' - project site (optional)
-"""
-    )
-    sys.exit(0)
-
-prog_path = os.path.split(os.path.abspath(sys.argv[0]))[0]
-sys.dont_write_bytecode = True
-
-parser = argparse.ArgumentParser()
-parser.add_argument("name", type=str, help="Project name")
-parser.add_argument("version", type=str, help="Project version")
-parser.add_argument("copyright", type=str, help="Copyright")
-parser.add_argument("path", type=str, help="Project directory")
-parser.add_argument("-repo", type=str, help="Address of the repository on GitHub")
-parser.add_argument("-author", type=str, help="Name of the author of the project")
-parser.add_argument("-mail", type=str, help="Mail of the author of the project")
-parser.add_argument("-site", type=str, help="Project site")
-
-SITE_PROJECT = parser.parse_args().site
-VERSION_PROJECT = parser.parse_args().version
-COPYRIGHT_PROJECT = parser.parse_args().copyright
-NAME_PROJECT = parser.parse_args().name
-DIR_PROJECT = parser.parse_args().path
-REPO_PROJECT = parser.parse_args().repo
-NAME_AUTHOR = parser.parse_args().author
-ADDRESS_MAIL = parser.parse_args().mail
-FULL_PATH_TO_PROJECT = os.path.join(DIR_PROJECT, NAME_PROJECT)
-
-if os.path.exists(FULL_PATH_TO_PROJECT):
-    Logger.error("Project {} already exists!".format(NAME_PROJECT))
-    sys.exit(0)
-
-try:
-    os.makedirs(FULL_PATH_TO_PROJECT)
-    Logger.info("Created project directory {} ...".format(FULL_PATH_TO_PROJECT))
-except FileNotFoundError:
-    Logger.error("The specified {} directory does not exist!".format(DIR_PROJECT))
-except Exception:
-    print(traceback.format_exc())
-    Logger.error(
-        "You are not authorized to create a project in "
-        "{} directory!".format(DIR_PROJECT)
-    )
-
-try:
-    Logger.info("Create entry point main.py ...")
-    write_file(
-        os.path.join(FULL_PATH_TO_PROJECT, "main.py"),
-        os.path.join(prog_path, "files", "main"),
-        {
-            "REPO_PROJECT": REPO_PROJECT,
-            "VERSION_PROJECT": VERSION_PROJECT,
-            "name_project": NAME_PROJECT.lower(),
-            "NAME_PROJECT": NAME_PROJECT,
-        },
-    )
-    Logger.info("Create file README.md ...")
-    open(os.path.join(FULL_PATH_TO_PROJECT, "README.md"), "w").write("")
-    Logger.info("Creating a code file program.py ...")
-    write_file(
-        os.path.join(FULL_PATH_TO_PROJECT, "%s.py" % NAME_PROJECT.lower()),
-        os.path.join(prog_path, "files", "program"),
-        {
-            "NAME_PROJECT": NAME_PROJECT,
-            "NAME_AUTHOR": NAME_AUTHOR,
-            "REPO_PROJECT": REPO_PROJECT,
-            "name_project": NAME_PROJECT.lower(),
-        },
-    )
-    Logger.info("Creating a Makefile to compile language localization files ...")
-    write_file(
-        os.path.join(FULL_PATH_TO_PROJECT, "Makefile"),
-        os.path.join(prog_path, "files", "Makefile"),
-        {"NAME_PROJECT": NAME_PROJECT},
-    )
-    Logger.info("Creating a license file ...")
-    write_file(
-        os.path.join(FULL_PATH_TO_PROJECT, "LICENSE"),
-        os.path.join(prog_path, "files", "LICENSE"),
-        {"COPYRIGHT_PROJECT": COPYRIGHT_PROJECT},
-    )
-
-    Logger.info("Copying files project...")
-    copy_files(os.path.join(prog_path, "libs"))
-    copy_files(os.path.join(prog_path, "data"))
-    copy_files(os.path.join(prog_path, "test"))
-    Logger.info("Create file navdrawer.kv ...")
-    write_file(
-        os.path.join(FULL_PATH_TO_PROJECT, "libs", "uix", "kv", "navdrawer.kv"),
-        os.path.join(prog_path, "files", "navdrawer"),
-        {"VERSION_PROJECT": VERSION_PROJECT},
-    )
-except FileNotFoundError as exc:
-    Logger.error("I can not find the project file - " + str(exc))
-    shutil.rmtree(FULL_PATH_TO_PROJECT, onerror=remove_readonly)
-    sys.exit(0)
-except Exception as exc:
-    Logger.error("Unknown error - \n" + traceback.format_exc())
-    shutil.rmtree(FULL_PATH_TO_PROJECT, onerror=remove_readonly)
-    sys.exit(0)
-
-Logger.info("Installing the KivyMD library ...")
-
-PATH_TO_FOLDER = os.path.dirname(os.path.abspath(__file__))
-PATH_TO_APPLIBS = os.path.join(PATH_TO_FOLDER, FULL_PATH_TO_PROJECT, "libs", "applibs")
-PATH_TO_KIVYMD = os.path.join(PATH_TO_APPLIBS, "KivyMD")
-PATH_TO_KIVYMD_OLD = os.path.join(PATH_TO_APPLIBS, "KivyMD_old")
-
-os.chdir(PATH_TO_APPLIBS)
-os.system("git clone https://github.com/HeaTTheatR/KivyMD")
-
-try:
-    os.rename(PATH_TO_KIVYMD, PATH_TO_KIVYMD_OLD)
-    shutil.move(os.path.join(PATH_TO_KIVYMD_OLD, "kivymd"), PATH_TO_APPLIBS)
-    Logger.info("Clean KivyMD files ...")
-    shutil.rmtree(PATH_TO_KIVYMD_OLD, onerror=remove_readonly)
-except OSError:
-    Logger.error("KivyMD library not installed!")
-else:
-    Logger.info("KivyMD library installation completed!")
-    Logger.info("Installing the Pillow library ...")
-    if platform.system().lower().find("win") > -1:
-        os.system("pip install pillow")
-        os.system("pip3 install pillow")
-    else:
-        os.system("sudo pip install pillow")
-        os.system("sudo pip3 install pillow")
-    Logger.info("Project {} successfully created!".format(NAME_PROJECT))
+if __name__ in ('__main__', '__android__'):
+    MainApp().run()
