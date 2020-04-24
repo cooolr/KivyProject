@@ -30,6 +30,7 @@ __mail__ = ""
 
 class MainApp(MDApp):
     title = __projectname__
+    version = __version__
     icon = 'icon.png'
     nav_drawer = ObjectProperty()
 
