@@ -37,7 +37,7 @@ class MainApp(MDApp):
     def __init__(self, **kvargs):
         super(MainApp, self).__init__(**kvargs)
         Window.bind(on_keyboard=self.events_program)
-        Window.soft_input_mode = 'below_target'
+        Window.softinput_mode = 'below_target'
         LabelBase.register(name="Roboto", fn_regular="./data/droid.ttf")
 
         self.list_previous_screens = ['base']
