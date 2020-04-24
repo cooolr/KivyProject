@@ -19,5 +19,12 @@ Framework [Kivy](http://kivy.org)
 
 INSTALLING
 ---------
-Download and unpack the archive into any convenient directory.
+Download and unpack the archive into any convenient directory, and pip install requirement: kivymd
 
+Features
+---------
+- Form a reusable project demo
+- Remove locale language switch
+- Remove bugreporter, reduce dependency
+- Remove dialogs, reduce dependency
+- Add theme switch
