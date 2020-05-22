@@ -16,7 +16,7 @@ from libs.uix.baseclass.startscreen import StartScreen
 from libs.uix.lists import Lists
 
 from kivymd.app import MDApp
-from kivymd.toast import toast
+from kivymd.uix.snackbar import Snackbar
 
 
 __projectname__ = "KivyProject Demo"
@@ -150,7 +150,7 @@ class MainApp(MDApp):
             sys.exit(0)
             
         Clock.schedule_interval(check_interval_press, 1)
-        toast(('Press Back to Exit'))
+        Snackbar(text='Press Back to Exit').show()
 
 
 if __name__ in ('__main__', '__android__'):
