@@ -28,3 +28,4 @@ Features
 - Remove bugreporter, reduce dependency
 - Remove dialogs, reduce dependency
 - Add theme switch
+- Replace toast to Snackbar
